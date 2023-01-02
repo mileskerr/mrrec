@@ -104,11 +104,24 @@ void draw_origin() {
     vec3 yunit = camera_trans((vec3) { 0, 1, 0 });
     vec3 zunit = camera_trans((vec3) { 0, 0, 1 });
     SDL_SetRenderDrawColor(renderer, 0xff, 0x0, 0x0, 0xff);
+    SDL_SetRenderDrawColor(renderer, 0xff, 0x0, 0x0, 0xff);
     SDL_RenderDrawLineF(renderer, origin.x, origin.y, xunit.x, xunit.y);
     SDL_SetRenderDrawColor(renderer, 0x0, 0xff, 0x0, 0xff);
     SDL_RenderDrawLineF(renderer, origin.x, origin.y, yunit.x, yunit.y);
     SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0xff, 0xff);
     SDL_RenderDrawLineF(renderer, origin.x, origin.y, zunit.x, zunit.y);
+}
+void draw_camera_origin() {
+    vec3 p0 = camera_trans(v3add(camera.pos,(vec3) {-0.25,0,0}));
+    vec3 p1 = camera_trans(v3add(camera.pos,(vec3) {0.25,0,0}));
+    vec3 p2 = camera_trans(v3add(camera.pos,(vec3) {0,-0.25,0}));
+    vec3 p3 = camera_trans(v3add(camera.pos,(vec3) {0,0.25,0}));
+    vec3 p4 = camera_trans(v3add(camera.pos,(vec3) {0,0,-0.25}));
+    vec3 p5 = camera_trans(v3add(camera.pos,(vec3) {0,0,0.25}));
+    SDL_SetRenderDrawColor(renderer, 0x40, 0x40, 0x40, 0xff);
+    SDL_RenderDrawLineF(renderer, p0.x, p0.y, p1.x, p1.y);
+    SDL_RenderDrawLineF(renderer, p2.x, p2.y, p3.x, p3.y);
+    SDL_RenderDrawLineF(renderer, p4.x, p4.y, p5.x, p5.y);
 }
     
 void draw_frame() {
@@ -126,6 +139,7 @@ void draw_frame() {
         SDL_RenderDrawLineF(renderer, p0.x, p0.y, p1.x, p1.y);
     }
     draw_origin();
+    draw_camera_origin();
     SDL_RenderPresent(renderer);
 }
 
@@ -181,8 +195,14 @@ void handle_event(SDL_Event * event) {
 
 #define CAM_UP SDL_SCANCODE_LSHIFT
 #define CAM_DOWN SDL_SCANCODE_LCTRL
+#define CAM_FWD SDL_SCANCODE_W
+#define CAM_BACK SDL_SCANCODE_S
+#define CAM_RIGHT SDL_SCANCODE_D
+#define CAM_LEFT SDL_SCANCODE_A
 
 void handle_keys() {
+    vec3 fwd;
+    vec3 right;
     const Uint8* kb_state = SDL_GetKeyboardState(NULL);
     if (kb_state[CAM_ROT_LEFT]) {
         azimuth += CAMERA_ROT_SPEED;
@@ -196,6 +216,18 @@ void handle_keys() {
         camera.pos.y += CAMERA_SPEED;
     } if (kb_state[CAM_DOWN]) {
         camera.pos.y -= CAMERA_SPEED;
+    } if (kb_state[CAM_FWD]) {
+        fwd = (vec3) { sinf(azimuth), 0, cosf(azimuth) };
+        camera.pos = v3add(camera.pos, v3mul(fwd, CAMERA_SPEED));
+    } if (kb_state[CAM_BACK]) {
+        fwd = (vec3) { sinf(azimuth), 0, cosf(azimuth) };
+        camera.pos = v3add(camera.pos, v3mul(fwd, -CAMERA_SPEED));
+    } if (kb_state[CAM_RIGHT]) {
+        right = (vec3) { cosf(azimuth), 0, -sinf(azimuth) };
+        camera.pos = v3add(camera.pos, v3mul(right, CAMERA_SPEED));
+    } if (kb_state[CAM_LEFT]) {
+        right = (vec3) { cosf(azimuth), 0, -sinf(azimuth) };
+        camera.pos = v3add(camera.pos, v3mul(right, -CAMERA_SPEED));
     }
     camera_setrot(azimuth, elevation);
 }
