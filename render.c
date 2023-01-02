@@ -10,13 +10,6 @@
 #include "math.h"
 #include "obj.h"
 
-#define WIDTH 1024
-#define HEIGHT 768
-#define MAX_FPS 60
-#define MOUSE_SENS 0.005
-#define CAMERA_SPEED 0.05
-#define CAMERA_ROT_SPEED 0.05
-
 typedef struct {
     size_t edge_count;
     vec3 * verts;
@@ -28,10 +21,59 @@ typedef struct {
     vec3 pos;
 } Camera;
 
-TTF_Font * default_font;
+typedef struct {
+    SDL_Scancode cam_rot_left;
+    SDL_Scancode cam_rot_right;
+    SDL_Scancode cam_rot_up;
+    SDL_Scancode cam_rot_down;
+    SDL_Scancode cam_up;
+    SDL_Scancode cam_down;
+    SDL_Scancode cam_fwd;
+    SDL_Scancode cam_back;
+    SDL_Scancode cam_right;
+    SDL_Scancode cam_left;
+} Keymap;
+
+typedef struct {
+    int width;
+    int height;
+    int max_fps;
+    float mouse_sens;
+    float camera_speed;
+    float camera_rot_speed;
+    char * model_path;
+    Keymap keymap;
+} Settings;
+
+
+Settings settings = {
+    .width = 1024,
+    .height = 768,
+    .max_fps = 60,
+    .mouse_sens = 1.0,
+    .camera_speed = 1.0,
+    .camera_rot_speed = 1.0,
+    .model_path = "example_models/utah_teapot.json",
+    .keymap = {
+        .cam_rot_left = SDL_SCANCODE_LEFT,
+        .cam_rot_right = SDL_SCANCODE_RIGHT,
+        .cam_rot_up = SDL_SCANCODE_UP,
+        .cam_rot_down = SDL_SCANCODE_DOWN,
+        .cam_up = SDL_SCANCODE_LSHIFT,
+        .cam_down = SDL_SCANCODE_LCTRL,
+        .cam_fwd = SDL_SCANCODE_W,
+        .cam_back = SDL_SCANCODE_S,
+        .cam_right = SDL_SCANCODE_D,
+        .cam_left = SDL_SCANCODE_A,
+    }
+};
 
 SDL_Window * window = NULL;
 SDL_Renderer * renderer;
+TTF_Font * default_font;
+Model * model;
+
+
 int running = 1;
 
 float azimuth = 1.0;
@@ -42,7 +84,6 @@ float frame_time = 0.0;
 
 Camera camera;
 
-Model * model = NULL;
 
 void draw_text(SDL_Renderer * renderer, char * message, TTF_Font * font, SDL_Color color, int x, int y) {
 
@@ -93,7 +134,7 @@ vec3 camera_trans(vec3 p) {
     vec3 result;
     result = m3v3mul(camera.view, v3sub(p,camera.pos));
     result = v3mul(result, zoom);
-    result = (vec3) { result.x * HEIGHT + (WIDTH/2), result.y * HEIGHT + (HEIGHT/2), result.z };
+    result = (vec3) { result.x * settings.height + (settings.width/2), result.y * settings.height + (settings.height/2), result.z };
     return result;
 }
 
@@ -132,15 +173,12 @@ void draw_frame() {
         SDL_SetRenderDrawColor(renderer, 0x80, 0x80, 0x80, 0xff);
         vec3 p0 = camera_trans(model->verts[model->edges[i]-1]);
         vec3 p1 = camera_trans(model->verts[model->edges[i+1]-1]);
-        /*for (int j = 0; j < model->edges[i][0]; j++) {
-            SDL_RenderDrawPoint(renderer, p0.x + j * 4 + 4, p0.y);
-        }*/
         SDL_RenderDrawLineF(renderer, p0.x, p0.y, p1.x, p1.y);
     }
     draw_origin();
     draw_camera_origin();
     char frame_time_str[40];
-    snprintf(frame_time_str, 40, "%.3f/%.3f", frame_time,1000.0/MAX_FPS);
+    snprintf(frame_time_str, 40, "%.3f/%.3f", frame_time,1000.0/settings.max_fps);
     draw_text(renderer, frame_time_str, default_font, (SDL_Color) {0xff,0xff,0xff,0xff}, 20, 20);
     SDL_RenderPresent(renderer);
 }
@@ -149,7 +187,7 @@ void draw_frame() {
 
 int setup_sdl() {
 	SDL_Init(SDL_INIT_VIDEO);
-	SDL_CreateWindowAndRenderer(WIDTH, HEIGHT, SDL_WINDOW_SHOWN, &window, &renderer);
+	SDL_CreateWindowAndRenderer(settings.width, settings.height, SDL_WINDOW_SHOWN, &window, &renderer);
 	if (!window) {
 		fprintf(stderr,"InitSetup failed to create window");
         running = 0;
@@ -182,8 +220,8 @@ void handle_event(SDL_Event * event) {
             break;
         case SDL_MOUSEMOTION:
             if (event->motion.state & SDL_BUTTON_RMASK) {
-                azimuth += (float)event->motion.xrel * MOUSE_SENS;
-                elevation += (float)event->motion.yrel * MOUSE_SENS;
+                azimuth += (float)event->motion.xrel * settings.mouse_sens / 200;
+                elevation += (float)event->motion.yrel * settings.mouse_sens / 200;
             }
             camera_setrot(azimuth, elevation);
             break;
@@ -193,54 +231,44 @@ void handle_event(SDL_Event * event) {
     }
 }
 
-#define CAM_ROT_LEFT SDL_SCANCODE_LEFT
-#define CAM_ROT_RIGHT SDL_SCANCODE_RIGHT
-#define CAM_ROT_UP SDL_SCANCODE_UP
-#define CAM_ROT_DOWN SDL_SCANCODE_DOWN
-
-#define CAM_UP SDL_SCANCODE_LSHIFT
-#define CAM_DOWN SDL_SCANCODE_LCTRL
-#define CAM_FWD SDL_SCANCODE_W
-#define CAM_BACK SDL_SCANCODE_S
-#define CAM_RIGHT SDL_SCANCODE_D
-#define CAM_LEFT SDL_SCANCODE_A
 
 void handle_keys() {
     vec3 fwd;
     vec3 right;
+    Keymap * km = &settings.keymap;
     const Uint8* kb_state = SDL_GetKeyboardState(NULL);
-    if (kb_state[CAM_ROT_LEFT]) {
-        azimuth += CAMERA_ROT_SPEED;
-    } if (kb_state[CAM_ROT_RIGHT]) {
-        azimuth -= CAMERA_ROT_SPEED;
-    } if (kb_state[CAM_ROT_UP]) {
-        elevation += CAMERA_ROT_SPEED;
-    } if (kb_state[CAM_ROT_DOWN]) {
-        elevation -= CAMERA_ROT_SPEED;
-    } if (kb_state[CAM_UP]) {
-        camera.pos.y += CAMERA_SPEED;
-    } if (kb_state[CAM_DOWN]) {
-        camera.pos.y -= CAMERA_SPEED;
-    } if (kb_state[CAM_FWD]) {
+    if (kb_state[km->cam_rot_left]) {
+        azimuth += settings.camera_rot_speed / 20;
+    } if (kb_state[km->cam_rot_right]) {
+        azimuth -= settings.camera_rot_speed / 20;
+    } if (kb_state[km->cam_rot_up]) {
+        elevation += settings.camera_rot_speed / 20;
+    } if (kb_state[km->cam_rot_down]) {
+        elevation -= settings.camera_rot_speed / 20;
+    } if (kb_state[km->cam_up]) {
+        camera.pos.y += settings.camera_speed / 20;
+    } if (kb_state[km->cam_down]) {
+        camera.pos.y -= settings.camera_speed / 20;
+    } if (kb_state[km->cam_fwd]) {
         fwd = (vec3) { sinf(azimuth), 0, cosf(azimuth) };
-        camera.pos = v3add(camera.pos, v3mul(fwd, CAMERA_SPEED));
-    } if (kb_state[CAM_BACK]) {
+        camera.pos = v3add(camera.pos, v3mul(fwd, settings.camera_speed / 20));
+    } if (kb_state[km->cam_back]) {
         fwd = (vec3) { sinf(azimuth), 0, cosf(azimuth) };
-        camera.pos = v3add(camera.pos, v3mul(fwd, -CAMERA_SPEED));
-    } if (kb_state[CAM_RIGHT]) {
+        camera.pos = v3add(camera.pos, v3mul(fwd, -settings.camera_speed / 20));
+    } if (kb_state[km->cam_right]) {
         right = (vec3) { cosf(azimuth), 0, -sinf(azimuth) };
-        camera.pos = v3add(camera.pos, v3mul(right, CAMERA_SPEED));
-    } if (kb_state[CAM_LEFT]) {
+        camera.pos = v3add(camera.pos, v3mul(right, settings.camera_speed / 20));
+    } if (kb_state[km->cam_left]) {
         right = (vec3) { cosf(azimuth), 0, -sinf(azimuth) };
-        camera.pos = v3add(camera.pos, v3mul(right, -CAMERA_SPEED));
+        camera.pos = v3add(camera.pos, v3mul(right, -settings.camera_speed / 20));
     }
     camera_setrot(azimuth, elevation);
 }
 
 
-const int MIN_CYCLES_PER_FRAME = (1.0/MAX_FPS) * (float) CLOCKS_PER_SEC;
 
 void loop() {
+    int min_cycles_per_frame = (1.0/settings.max_fps) * (float) CLOCKS_PER_SEC;
     SDL_Event event;
 	while (running) {
         clock_t t = clock();
@@ -251,7 +279,7 @@ void loop() {
         handle_keys();
         draw_frame();
         frame_time = ((clock() - t) * 1000) / (float) CLOCKS_PER_SEC;
-        while (clock() - t < MIN_CYCLES_PER_FRAME) { /*wait*/ }
+        while (clock() - t < min_cycles_per_frame) { /*wait*/ }
 	}
 }
 
@@ -264,8 +292,8 @@ void finish() {
 	exit(0);
 }
 
-int main(int argc,char * args[])
-{
+int main(int argc, char * args[]) {
+
     FILE * fp;
     fp = fopen("example_models/utah_teapot.obj", "r");
 
@@ -280,7 +308,7 @@ int main(int argc,char * args[])
 
 
 	setup_sdl();
-    camera_init(1.0, 1.0, (vec3) { 0, 0, 0 });
+    camera_init(0.5, 0.5, (vec3) { 0, 0, 0 });
 	loop();
 	finish();
     return 0;
