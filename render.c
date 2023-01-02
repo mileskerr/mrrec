@@ -10,6 +10,9 @@
 #define WIDTH 1024
 #define HEIGHT 768
 #define MAX_FPS 60
+#define MOUSE_SENS 0.005
+#define CAMERA_SPEED 0.05
+#define CAMERA_ROT_SPEED 0.05
 
 typedef struct {
     size_t edge_count;
@@ -19,6 +22,7 @@ typedef struct {
 
 typedef struct {
     vec3 view[3];
+    vec3 pos;
 } Camera;
 
 SDL_Window * window = NULL;
@@ -60,8 +64,7 @@ Model * model = NULL;
 };*/
 
 
-
-void camera_init(float azimuth, float elevation) {
+void camera_setrot(float azimuth, float elevation) {
     vec3 fwd;
     fwd.z = cosf(azimuth) * cosf(elevation);
     fwd.x = -sinf(azimuth);
@@ -74,15 +77,22 @@ void camera_init(float azimuth, float elevation) {
 
     vec3 up = v3cross(fwd, right);
     
+    camera.view[0] = up;
+    camera.view[1] = right;
+    camera.view[2] = fwd;
+}
+
+void camera_init(float azimuth, float elevation, vec3 position) {
     camera = (Camera) {
-        .view = { up, right, fwd },
+        .pos = position
     };
+    camera_setrot(azimuth, elevation);
 }
 
 
 vec3 camera_trans(vec3 p) {
     vec3 result;
-    result = m3v3mul(camera.view, p);
+    result = m3v3mul(camera.view, v3sub(p,camera.pos));
     result = v3mul(result, zoom);
     result = (vec3) { result.x * HEIGHT + (WIDTH/2), result.y * HEIGHT + (HEIGHT/2), result.z };
     return result;
@@ -143,40 +153,49 @@ void handle_event(SDL_Event * event) {
                 case SDLK_ESCAPE:
                     running = 0;
                     break;
-                case SDLK_LEFT:
-                    azimuth += 0.1;
-                    camera_init(azimuth, elevation);
-                    break;
-                case SDLK_RIGHT:
-                    azimuth -= 0.1;
-                    camera_init(azimuth, elevation);
-                    break;
-                case SDLK_UP:
-                    elevation += 0.1;
-                    camera_init(azimuth, elevation);
-                    break;
-                case SDLK_DOWN:
-                    elevation -= 0.1;
-                    camera_init(azimuth, elevation);
-                    break;
             }
             break;
         case SDL_MOUSEWHEEL:
             zoom += ((float) event->wheel.y)/20.0;
-            camera_init(azimuth, elevation);
+            camera_setrot(azimuth, elevation);
             break;
         case SDL_MOUSEMOTION:
-            const float MOUSE_SENS = 0.01;
             if (event->motion.state & SDL_BUTTON_RMASK) {
                 azimuth += (float)event->motion.xrel * MOUSE_SENS;
                 elevation += (float)event->motion.yrel * MOUSE_SENS;
             }
-            camera_init(azimuth, elevation);
+            camera_setrot(azimuth, elevation);
             break;
         case SDL_QUIT:
             running = 0;
             break;
     }
+}
+
+#define CAM_ROT_LEFT SDL_SCANCODE_LEFT
+#define CAM_ROT_RIGHT SDL_SCANCODE_RIGHT
+#define CAM_ROT_UP SDL_SCANCODE_UP
+#define CAM_ROT_DOWN SDL_SCANCODE_DOWN
+
+#define CAM_UP SDL_SCANCODE_LSHIFT
+#define CAM_DOWN SDL_SCANCODE_LCTRL
+
+void handle_keys() {
+    const Uint8* kb_state = SDL_GetKeyboardState(NULL);
+    if (kb_state[CAM_ROT_LEFT]) {
+        azimuth += CAMERA_ROT_SPEED;
+    } if (kb_state[CAM_ROT_RIGHT]) {
+        azimuth -= CAMERA_ROT_SPEED;
+    } if (kb_state[CAM_ROT_UP]) {
+        elevation += CAMERA_ROT_SPEED;
+    } if (kb_state[CAM_ROT_DOWN]) {
+        elevation -= CAMERA_ROT_SPEED;
+    } if (kb_state[CAM_UP]) {
+        camera.pos.y += CAMERA_SPEED;
+    } if (kb_state[CAM_DOWN]) {
+        camera.pos.y -= CAMERA_SPEED;
+    }
+    camera_setrot(azimuth, elevation);
 }
 
 
@@ -190,6 +209,7 @@ void loop() {
 		while (SDL_PollEvent(&event)) {
             handle_event(&event);
 		}
+        handle_keys();
         draw_frame();
         while (clock() - t < MIN_CYCLES_PER_FRAME) { /*wait*/ }
 	}
@@ -218,7 +238,7 @@ int main(int argc,char * args[])
 
 
 	if (!setup_sdl()) return 0;
-    camera_init(1.0, 1.0);
+    camera_init(1.0, 1.0, (vec3) { 0, 0, 0 });
     /*
     printf("%s\n",v3fmt(camera.view[0]));
     printf("%s\n",v3fmt(camera.view[1]));
