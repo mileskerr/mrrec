@@ -1,4 +1,4 @@
-dependencies: sdl2
+dependencies: SDL2, SDL2_ttf
 build instructions: run `make` in the repo directory
 
 right mouse or arrow keys to rotate camera, WASD + lctrl/lshift to move camera.
