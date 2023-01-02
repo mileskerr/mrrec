@@ -4,11 +4,12 @@
 #include <stdio.h>
 #include <SDL2/SDL.h>
 #include <stdlib.h>
+#include <time.h>
 #include <stdint.h>
 
-#define QUITKEY SDLK_ESCAPE
 #define WIDTH 1024
 #define HEIGHT 768
+#define MAX_FPS 60
 
 typedef struct {
     size_t edge_count;
@@ -138,42 +139,39 @@ int setup_sdl() {
 void handle_event(SDL_Event * event) {
     switch (event->type) {
         case SDL_KEYDOWN:
-            int keypressed = event->key.keysym.sym;
-            if (keypressed == QUITKEY) {
-                running = 0;
-                break;
-            }
-            if (keypressed == SDLK_LEFT) {
-                azimuth += 0.1;
-                camera_init(azimuth, elevation);
-                draw_frame();
-                break;
-            }
-            if (keypressed == SDLK_RIGHT) {
-                azimuth -= 0.1;
-                camera_init(azimuth, elevation);
-                draw_frame();
-                break;
-            }
-            if (keypressed == SDLK_UP) {
-                elevation += 0.1;
-                camera_init(azimuth, elevation);
-                draw_frame();
-                break;
-            }
-            if (keypressed == SDLK_DOWN) {
-                elevation -= 0.1;
-                camera_init(azimuth, elevation);
-                draw_frame();
-                break;
+            switch (event->key.keysym.sym) {
+                case SDLK_ESCAPE:
+                    running = 0;
+                    break;
+                case SDLK_LEFT:
+                    azimuth += 0.1;
+                    camera_init(azimuth, elevation);
+                    break;
+                case SDLK_RIGHT:
+                    azimuth -= 0.1;
+                    camera_init(azimuth, elevation);
+                    break;
+                case SDLK_UP:
+                    elevation += 0.1;
+                    camera_init(azimuth, elevation);
+                    break;
+                case SDLK_DOWN:
+                    elevation -= 0.1;
+                    camera_init(azimuth, elevation);
+                    break;
             }
             break;
         case SDL_MOUSEWHEEL:
             zoom += ((float) event->wheel.y)/20.0;
             camera_init(azimuth, elevation);
-            draw_frame();
             break;
         case SDL_MOUSEMOTION:
+            const float MOUSE_SENS = 0.01;
+            if (event->motion.state & SDL_BUTTON_RMASK) {
+                azimuth += (float)event->motion.xrel * MOUSE_SENS;
+                elevation += (float)event->motion.yrel * MOUSE_SENS;
+            }
+            camera_init(azimuth, elevation);
             break;
         case SDL_QUIT:
             running = 0;
@@ -181,12 +179,19 @@ void handle_event(SDL_Event * event) {
     }
 }
 
+
+const int MIN_CYCLES_PER_FRAME = (1.0/MAX_FPS) * (float) CLOCKS_PER_SEC;
+
 void loop() {
     SDL_Event event;
 	while (running) {
+        clock_t t = clock();
+        SDL_PumpEvents();
 		while (SDL_PollEvent(&event)) {
             handle_event(&event);
 		}
+        draw_frame();
+        while (clock() - t < MIN_CYCLES_PER_FRAME) { /*wait*/ }
 	}
 }
 
