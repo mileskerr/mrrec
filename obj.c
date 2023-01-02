@@ -1,26 +1,6 @@
 #include "vmath.h"
 #include "obj.h"
 
-/*int read_word(char * buf, FILE * fp) {
-    const char DL[128] = { [' '] = 1, ['\n'] = 1 };
-    char ch;
-    do {
-        ch = fgetc(fp);
-        if (ch == EOF) return 0;
-    } while (DL[(size_t) ch]);
-
-    int i = 0;
-    do {
-        buf[i] = ch;
-        ch = fgetc(fp);
-        if (ch == EOF) break;
-        i++;
-    } while (!DL[(size_t) ch]);
-    
-    buf[i] = 0;
-    return 0;
-}*/
-
 void parse_face(char * nptr, int res[16]) {
     char buf[16] = { 0 };
     int ptri, bi, ri;
@@ -108,9 +88,4 @@ size_t parse_obj(FILE * fp, vec3 ** verts, size_t ** edges) {
         }
     }
     return face_count * 6;
-        
-    
-
-//TODO: fgets()
-
 }
