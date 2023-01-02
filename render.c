@@ -1,11 +1,14 @@
-#include "vmath.h"
-#include "math.h"
-#include "obj.h"
 #include <stdio.h>
-#include <SDL2/SDL.h>
 #include <stdlib.h>
 #include <time.h>
 #include <stdint.h>
+
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
+
+#include "vmath.h"
+#include "math.h"
+#include "obj.h"
 
 #define WIDTH 1024
 #define HEIGHT 768
@@ -25,6 +28,8 @@ typedef struct {
     vec3 pos;
 } Camera;
 
+TTF_Font * default_font;
+
 SDL_Window * window = NULL;
 SDL_Renderer * renderer;
 int running = 1;
@@ -33,9 +38,30 @@ float azimuth = 1.0;
 float elevation = 1.0;
 float zoom = 0.5;
 
+float frame_time = 0.0;
+
 Camera camera;
 
 Model * model = NULL;
+
+void draw_text(SDL_Renderer * renderer, char * message, TTF_Font * font, SDL_Color color, int x, int y) {
+
+	SDL_Surface * surf = TTF_RenderText_Blended(font, message, color);
+	SDL_Texture * texture = SDL_CreateTextureFromSurface(renderer, surf);
+
+	SDL_FreeSurface(surf);
+   
+    int w, h;
+    SDL_QueryTexture(texture, NULL, NULL, &w, &h);
+    SDL_Rect dstrect = {
+        .x = x,
+        .y = y,
+        .w = w,
+        .h = h
+    };
+    SDL_RenderCopy(renderer, texture, NULL, &dstrect);
+
+}
 
 void camera_setrot(float azimuth, float elevation) {
     vec3 fwd;
@@ -113,6 +139,9 @@ void draw_frame() {
     }
     draw_origin();
     draw_camera_origin();
+    char frame_time_str[40];
+    snprintf(frame_time_str, 40, "%.3f/%.3f", frame_time,1000.0/MAX_FPS);
+    draw_text(renderer, frame_time_str, default_font, (SDL_Color) {0xff,0xff,0xff,0xff}, 20, 20);
     SDL_RenderPresent(renderer);
 }
 
@@ -129,7 +158,10 @@ int setup_sdl() {
 	SDL_SetWindowTitle(window, "Example One");
     SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0xff);
     SDL_RenderClear(renderer);
-    SDL_RenderPresent(renderer);
+
+    TTF_Init();
+    default_font = TTF_OpenFont("fonts/Unifont.ttf", 18);
+
     return 1;
 }
 
@@ -218,13 +250,16 @@ void loop() {
 		}
         handle_keys();
         draw_frame();
+        frame_time = ((clock() - t) * 1000) / (float) CLOCKS_PER_SEC;
         while (clock() - t < MIN_CYCLES_PER_FRAME) { /*wait*/ }
 	}
 }
 
 void finish() {
+    TTF_CloseFont(default_font);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
+    TTF_Quit();
 	SDL_Quit();
 	exit(0);
 }
