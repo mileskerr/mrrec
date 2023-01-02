@@ -113,9 +113,11 @@ void draw_origin() {
     
 void draw_frame() {
     SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0xff);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
     SDL_RenderClear(renderer);
     for (int i = 0; i < model->edge_count; i+=2) {
-        SDL_SetRenderDrawColor(renderer, 0xff, 0xff, 0xff, 0xff);
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_ADD);
+        SDL_SetRenderDrawColor(renderer, 0x80, 0x80, 0x80, 0xff);
         vec3 p0 = camera_trans(model->verts[model->edges[i]-1]);
         vec3 p1 = camera_trans(model->verts[model->edges[i+1]-1]);
         /*for (int j = 0; j < model->edges[i][0]; j++) {
