@@ -36,33 +36,6 @@ float zoom = 0.5;
 Camera camera;
 
 Model * model = NULL;
-/*Model * model = &(Model) {
-    .points = {
-        { 0.5, 0.5, 0.5 },   //0
-        { 0.5, 0.5, -0.5 },  //1
-        { 0.5, -0.5, -0.5 }, //2
-        { 0.5, -0.5, 0.5 },  //3
-        { -0.5, 0.5, 0.5 },  //4
-        { -0.5, 0.5, -0.5 }, //5
-        { -0.5, -0.5, -0.5 },//6
-        { -0.5, -0.5, 0.5 }, //7
-    },
-    .edges = {
-        0,1,
-        1,2,
-        2,3,
-        3,0,
-        0,4,
-        1,5,
-        2,6,
-        3,7,
-        4,5,
-        5,6,
-        6,7,
-        7,4
-    }
-};*/
-
 
 void camera_setrot(float azimuth, float elevation) {
     vec3 fwd;
@@ -271,14 +244,8 @@ int main(int argc,char * args[])
     };
 
 
-	if (!setup_sdl()) return 0;
+	setup_sdl();
     camera_init(1.0, 1.0, (vec3) { 0, 0, 0 });
-    /*
-    printf("%s\n",v3fmt(camera.view[0]));
-    printf("%s\n",v3fmt(camera.view[1]));
-    printf("%s\n",v3fmt(camera.view[2]));
-    */
-    draw_frame();
 	loop();
 	finish();
     return 0;
