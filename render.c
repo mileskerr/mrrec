@@ -291,7 +291,15 @@ void finish() {
 	exit(0);
 }
 
-#define OPTS_START()
+#define OPTS_START() \
+void parse_opts(int argc, char * args[]) { \
+    int argi = 1; /*0th argument is name of program*/ \
+    int parami = 1; \
+    for (argi = 1; argi < argc; argi++) { \
+        parami = argi; \
+        if (args[argi][0] == '-') { /*only doing short names for now*/ \
+            int chi = 1;/*0th character is always a dash*/ \
+            while (args[argi][chi]) { /*go through each short option*/ \
 
 #define STR_OPT(NAME, STORE) \
     if (args[argi][chi] == NAME) { \
@@ -322,31 +330,23 @@ void finish() {
         continue; \
     }
 
-#define OPTS_END() { \
-        fprintf(stderr, "invalid option '-%c'\n", args[argi][chi]); \
+#define OPTS_END() \
+            { \
+                fprintf(stderr, "invalid option '-%c'\n", args[argi][chi]); \
+            } \
+            chi++; \
+        } \
+        argi = parami; \
+        } \
     } \
-    chi++; \
+}
 
-void parse_opts(int argc, char * args[]) {
-    int argi = 1; //0th argument is name of program
-    int parami = 1;
-
-    for (argi = 1; argi < argc; argi++) {
-        parami = argi;
-        if (args[argi][0] == '-') { //only doing short names for now
-            int chi = 1;/*0th character is always a dash*/
-            while (args[argi][chi]) { /*go through each short option*/
                 OPTS_START();
                 NUM_OPT('w', settings.width);
                 NUM_OPT('h', settings.height);
                 NUM_OPT('F', settings.max_fps);
                 STR_OPT('m', settings.model_path);
                 OPTS_END();
-            }
-        }
-        argi = parami;
-    }
-}
 
 int main(int argc, char * args[]) {
 
