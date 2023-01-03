@@ -3,4 +3,5 @@ build instructions: run `make` in the repo directory
 
 right mouse or arrow keys to rotate camera, WASD + lctrl/lshift to move camera.
 
-to load a different obj file, specify its path in the fopen() call near the bottom of render.c and rebuild. (it's a work in progress)
+Usage:
+    mrrec [-m <path/to/model.obj>] [-w <width>] [-h <height>] [-F <max fps>]
