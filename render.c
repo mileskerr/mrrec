@@ -45,7 +45,6 @@ typedef struct {
     Keymap keymap;
 } Settings;
 
-
 Settings settings = {
     .width = 1024,
     .height = 768,
@@ -53,7 +52,7 @@ Settings settings = {
     .mouse_sens = 1.0,
     .camera_speed = 1.0,
     .camera_rot_speed = 1.0,
-    .model_path = "example_models/utah_teapot.json",
+    .model_path = "example_models/utah_teapot.obj",
     .keymap = {
         .cam_rot_left = SDL_SCANCODE_LEFT,
         .cam_rot_right = SDL_SCANCODE_RIGHT,
@@ -292,10 +291,69 @@ void finish() {
 	exit(0);
 }
 
+#define OPTS_START()
+
+#define STR_OPT(NAME, STORE) \
+    if (args[argi][chi] == NAME) { \
+        parami++; \
+        if (parami >= argc) { \
+            fprintf(stderr, "expected argument for option '-%c'\n", args[argi][chi]); \
+        } else { /*there is a parameter, but it's not necessarily formatted properly*/ \
+            STORE = args[parami]; \
+        } \
+        chi++; \
+        continue; \
+    }
+#define NUM_OPT(NAME, STORE) \
+    if (args[argi][chi] == NAME) { \
+        parami++; \
+        if (parami >= argc) { \
+            fprintf(stderr, "expected argument for option '-%c'\n", args[argi][chi]); \
+        } else { /*there is a parameter, but it's not necessarily formatted properly*/ \
+            char * endptr; \
+            double param = strtod(args[parami],&endptr); \
+            if (*endptr) { /*strtod didn't read to the end of the string, so it's not a valid number*/ \
+                fprintf(stderr, "invalid argument '%s' for option '-%c'\n", args[parami], args[argi][chi]); \
+            } else { \
+                STORE = param; \
+            } \
+        } \
+        chi++; \
+        continue; \
+    }
+
+#define OPTS_END() { \
+        fprintf(stderr, "invalid option '-%c'\n", args[argi][chi]); \
+    } \
+    chi++; \
+
+void parse_opts(int argc, char * args[]) {
+    int argi = 1; //0th argument is name of program
+    int parami = 1;
+
+    for (argi = 1; argi < argc; argi++) {
+        parami = argi;
+        if (args[argi][0] == '-') { //only doing short names for now
+            int chi = 1;/*0th character is always a dash*/
+            while (args[argi][chi]) { /*go through each short option*/
+                OPTS_START();
+                NUM_OPT('w', settings.width);
+                NUM_OPT('h', settings.height);
+                NUM_OPT('F', settings.max_fps);
+                STR_OPT('m', settings.model_path);
+                OPTS_END();
+            }
+        }
+        argi = parami;
+    }
+}
+
 int main(int argc, char * args[]) {
 
+    parse_opts(argc, args);
+
     FILE * fp;
-    fp = fopen("example_models/utah_teapot.obj", "r");
+    fp = fopen(settings.model_path, "r");
 
     vec3 * verts;
     size_t * edges;
@@ -305,7 +363,6 @@ int main(int argc, char * args[]) {
         .verts = verts,
         .edge_count = edge_count,
     };
-
 
 	setup_sdl();
     camera_init(0.5, 0.5, (vec3) { 0, 0, 0 });
