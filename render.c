@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <stdint.h>
+#include <sys/param.h>
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
@@ -49,9 +50,9 @@ Settings settings = {
     .width = 1024,
     .height = 768,
     .max_fps = 60,
-    .mouse_sens = 1.0,
-    .camera_speed = 1.0,
-    .camera_rot_speed = 1.0,
+    .mouse_sens = 0.5,
+    .camera_speed = 2.0,
+    .camera_rot_speed = 1.5,
     .model_path = "example_models/utah_teapot.obj",
     .keymap = {
         .cam_rot_left = SDL_SCANCODE_LEFT,
@@ -79,7 +80,8 @@ float azimuth = 1.0;
 float elevation = 1.0;
 float zoom = 0.5;
 
-float frame_time = 0.0;
+float frame_time = 0.0; //time taken to draw last frame
+float delta_time = 0.0; //time taken by last frame (including waiting)
 
 Camera camera;
 
@@ -177,7 +179,7 @@ void draw_frame() {
     draw_origin();
     draw_camera_origin();
     char frame_time_str[40];
-    snprintf(frame_time_str, 40, "%.3f/%.3f", frame_time,1000.0/settings.max_fps);
+    snprintf(frame_time_str, 40, "%.3f/%.3f", frame_time * 1000.0,1000.0/settings.max_fps);
     draw_text(renderer, frame_time_str, default_font, (SDL_Color) {0xff,0xff,0xff,0xff}, 20, 20);
     SDL_RenderPresent(renderer);
 }
@@ -219,8 +221,8 @@ void handle_event(SDL_Event * event) {
             break;
         case SDL_MOUSEMOTION:
             if (event->motion.state & SDL_BUTTON_RMASK) {
-                azimuth += (float)event->motion.xrel * settings.mouse_sens / 200;
-                elevation += (float)event->motion.yrel * settings.mouse_sens / 200;
+                azimuth += (float)event->motion.xrel * settings.mouse_sens * delta_time;
+                elevation += (float)event->motion.yrel * settings.mouse_sens * delta_time;
             }
             camera_setrot(azimuth, elevation);
             break;
@@ -237,29 +239,29 @@ void handle_keys() {
     Keymap * km = &settings.keymap;
     const Uint8* kb_state = SDL_GetKeyboardState(NULL);
     if (kb_state[km->cam_rot_left]) {
-        azimuth += settings.camera_rot_speed / 20;
+        azimuth += settings.camera_rot_speed * delta_time;
     } if (kb_state[km->cam_rot_right]) {
-        azimuth -= settings.camera_rot_speed / 20;
+        azimuth -= settings.camera_rot_speed * delta_time;
     } if (kb_state[km->cam_rot_up]) {
-        elevation += settings.camera_rot_speed / 20;
+        elevation += settings.camera_rot_speed * delta_time;
     } if (kb_state[km->cam_rot_down]) {
-        elevation -= settings.camera_rot_speed / 20;
+        elevation -= settings.camera_rot_speed * delta_time;
     } if (kb_state[km->cam_up]) {
-        camera.pos.y += settings.camera_speed / 20;
+        camera.pos.y += settings.camera_speed * delta_time;
     } if (kb_state[km->cam_down]) {
-        camera.pos.y -= settings.camera_speed / 20;
+        camera.pos.y -= settings.camera_speed * delta_time;
     } if (kb_state[km->cam_fwd]) {
         fwd = (vec3) { sinf(azimuth), 0, cosf(azimuth) };
-        camera.pos = v3add(camera.pos, v3mul(fwd, settings.camera_speed / 20));
+        camera.pos = v3add(camera.pos, v3mul(fwd, settings.camera_speed * delta_time));
     } if (kb_state[km->cam_back]) {
         fwd = (vec3) { sinf(azimuth), 0, cosf(azimuth) };
-        camera.pos = v3add(camera.pos, v3mul(fwd, -settings.camera_speed / 20));
+        camera.pos = v3add(camera.pos, v3mul(fwd, -settings.camera_speed * delta_time));
     } if (kb_state[km->cam_right]) {
         right = (vec3) { cosf(azimuth), 0, -sinf(azimuth) };
-        camera.pos = v3add(camera.pos, v3mul(right, settings.camera_speed / 20));
+        camera.pos = v3add(camera.pos, v3mul(right, settings.camera_speed * delta_time));
     } if (kb_state[km->cam_left]) {
         right = (vec3) { cosf(azimuth), 0, -sinf(azimuth) };
-        camera.pos = v3add(camera.pos, v3mul(right, -settings.camera_speed / 20));
+        camera.pos = v3add(camera.pos, v3mul(right, -settings.camera_speed * delta_time));
     }
     camera_setrot(azimuth, elevation);
 }
@@ -267,7 +269,8 @@ void handle_keys() {
 
 
 void loop() {
-    int min_cycles_per_frame = (1.0/settings.max_fps) * (float) CLOCKS_PER_SEC;
+    float min_secs_per_frame = 1.0/(float) settings.max_fps;
+    int min_cycles_per_frame = (min_secs_per_frame) * (float) CLOCKS_PER_SEC;
     SDL_Event event;
 	while (running) {
         clock_t t = clock();
@@ -277,7 +280,8 @@ void loop() {
 		}
         handle_keys();
         draw_frame();
-        frame_time = ((clock() - t) * 1000) / (float) CLOCKS_PER_SEC;
+        frame_time = (float) (clock() - t) / (float) CLOCKS_PER_SEC;
+        delta_time = MAX(frame_time,min_secs_per_frame);
         while (clock() - t < min_cycles_per_frame) { /*wait*/ }
 	}
 }
@@ -302,51 +306,51 @@ void parse_opts(int argc, char * args[]) { \
             while (args[argi][chi]) { /*go through each short option*/ \
 
 #define STR_OPT(NAME, STORE) \
-    if (args[argi][chi] == NAME) { \
-        parami++; \
-        if (parami >= argc) { \
-            fprintf(stderr, "expected argument for option '-%c'\n", args[argi][chi]); \
-        } else { /*there is a parameter, but it's not necessarily formatted properly*/ \
-            STORE = args[parami]; \
-        } \
-        chi++; \
-        continue; \
-    }
+                if (args[argi][chi] == NAME) { \
+                    parami++; \
+                    if (parami >= argc) { \
+                        fprintf(stderr, "expected argument for option '-%c'\n", args[argi][chi]); \
+                    } else { /*there is a parameter, but it's not necessarily formatted properly*/ \
+                        STORE = args[parami]; \
+                    } \
+                    chi++; \
+                    continue; \
+                }
 #define NUM_OPT(NAME, STORE) \
-    if (args[argi][chi] == NAME) { \
-        parami++; \
-        if (parami >= argc) { \
-            fprintf(stderr, "expected argument for option '-%c'\n", args[argi][chi]); \
-        } else { /*there is a parameter, but it's not necessarily formatted properly*/ \
-            char * endptr; \
-            double param = strtod(args[parami],&endptr); \
-            if (*endptr) { /*strtod didn't read to the end of the string, so it's not a valid number*/ \
-                fprintf(stderr, "invalid argument '%s' for option '-%c'\n", args[parami], args[argi][chi]); \
-            } else { \
-                STORE = param; \
-            } \
-        } \
-        chi++; \
-        continue; \
-    }
+                if (args[argi][chi] == NAME) { \
+                    parami++; \
+                    if (parami >= argc) { \
+                        fprintf(stderr, "expected argument for option '-%c'\n", args[argi][chi]); \
+                    } else { /*there is a parameter, but it's not necessarily formatted properly*/ \
+                        char * endptr; \
+                        double param = strtod(args[parami],&endptr); \
+                        if (*endptr) { /*strtod didn't read to the end of the string, so it's not a valid number*/ \
+                            fprintf(stderr, "invalid argument '%s' for option '-%c'\n", args[parami], args[argi][chi]); \
+                        } else { \
+                            STORE = param; \
+                        } \
+                    } \
+                    chi++; \
+                    continue; \
+                }
 
 #define OPTS_END() \
-            { \
-                fprintf(stderr, "invalid option '-%c'\n", args[argi][chi]); \
+                { \
+                    fprintf(stderr, "invalid option '-%c'\n", args[argi][chi]); \
+                } \
+                chi++; \
             } \
-            chi++; \
-        } \
         argi = parami; \
         } \
     } \
 }
 
-                OPTS_START();
-                NUM_OPT('w', settings.width);
-                NUM_OPT('h', settings.height);
-                NUM_OPT('F', settings.max_fps);
-                STR_OPT('m', settings.model_path);
-                OPTS_END();
+OPTS_START();
+NUM_OPT('w', settings.width);
+NUM_OPT('h', settings.height);
+NUM_OPT('F', settings.max_fps);
+STR_OPT('m', settings.model_path);
+OPTS_END();
 
 int main(int argc, char * args[]) {
 
