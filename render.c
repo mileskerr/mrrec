@@ -20,7 +20,6 @@ typedef struct {
 } Model;
 
 
-typedef enum { PROJ_PERS, PROJ_ORTHO } ProjType;
 typedef struct {
     vec3 pos;
     float azim;
@@ -30,11 +29,9 @@ typedef struct {
     int height;
     float near_clip;
     float far_clip;
-    ProjType proj_type;
-    union {
-        float zoom;
-        float fov;
-    };
+    int ortho;
+    float ortho_scale;
+    float fov;
     matrix4 view;
     matrix4 proj;
     matrix4 combined;
@@ -131,15 +128,15 @@ void camera_setrot(float azim, float elev) {
     camera.elev = elev;
 
     vec4 zaxis = {
-        .x = -sinf(-azim),
-        .y = -cosf(-azim) * sinf(elev),
-        .z = cosf(-azim) * cosf(elev),
+        .x = -sinf(azim),
+        .y = -cosf(azim) * sinf(-elev),
+        .z = cosf(azim) * cosf(-elev),
     };
 
     vec4 yaxis = {
         .x = 0,
-        .y = cosf(elev),
-        .z = sinf(elev),
+        .y = -cosf(-elev),
+        .z = -sinf(-elev),
     };
     
     vec4 xaxis = v4cross(zaxis, yaxis);
@@ -166,20 +163,29 @@ void camera_setpos(vec3 pos) {
 void camera_precalc() {
     float h = 1/(tanf(camera.fov/2.0));
     float w = h / camera.aspect;
-    camera.proj = m4mul(
-        (matrix4) {
-            { camera.width/2, 0, 0, 0},
-            { 0, camera.height/2, 0, 0},
+    if (camera.ortho) {
+        camera.proj = (matrix4) {
+            { camera.height/2 * camera.ortho_scale, 0, 0, 0},
+            { 0, camera.height/2 * camera.ortho_scale, 0, 0},
             { 0, 0, 1, 0 },
             { camera.width/2, camera.height/2, 0, 1 }
-        },
-        (matrix4) {
-            { w, 0, 0, 0 },
-            { 0, h , 0, 0 },
-            { 0, 0, 1, -1 },
-            { 0, 0, 1, 0 },
-        }
-    );
+        };
+    } else {
+        camera.proj = m4mul(
+            (matrix4) {
+                { camera.height/2, 0, 0, 0},
+                { 0, camera.height/2, 0, 0},
+                { 0, 0, 1, 0 },
+                { camera.width/2, camera.height/2, 0, 1 }
+            },
+            (matrix4) {
+                { w, 0, 0, 0 },
+                { 0, h , 0, 0 },
+                { 0, 0, 1, 1 },
+                { 0, 0, 1, 0 },
+            }
+        );
+    }
     camera.combined = m4mul(camera.proj, camera.view);
 }
 
@@ -189,8 +195,9 @@ void camera_init(float fov, int width, int height, float near_clip, float far_cl
         .width = width,
         .height = height,
         .near_clip = near_clip,
-        .proj_type = PROJ_PERS,
         .fov = fov,
+        .ortho = 0,
+        .ortho_scale = 1,
         .pos = (vec3) { 0.5, 2, -5},
     };
     camera_setrot(0, 0);
@@ -198,7 +205,7 @@ void camera_init(float fov, int width, int height, float near_clip, float far_cl
 }
 
 
-vec3 camera_trans(vec3 p) {
+vec4 camera_trans(vec3 p) {
     /*matrix4 defcom = {
         { 1182, 0, 0, 0 },
         { 0, 665.1, 0, 0 },
@@ -207,33 +214,34 @@ vec3 camera_trans(vec3 p) {
     };
     vec4 hg = m4v4mul(defcomcamera.combined, V3TO4(p,1.0));*/
     vec4 hg = m4v4mul(camera.combined, V3TO4(p,1.0));
-    if (hg.w) {
-        return hgtocar(hg);
-    } else {
-        return (vec3) {  0, 0, 0 };
-    }
+    return hg;
+}
+
+void draw_edge(vec3 p0, vec3 p1) {
+    vec4 hg0 = camera_trans(p0);
+    vec4 hg1 = camera_trans(p1);
+    if ((hg0.w <= 0) || (hg1.w <= 0)) return;
+    vec3 s0 = hgtocar(hg0);
+    vec3 s1 = hgtocar(hg1);
+    SDL_RenderDrawLineF(renderer, s0.x, s0.y, s1.x, s1.y);
 }
 
 void draw_origin() {
-    vec3 origin = camera_trans((vec3) { 0, 0, 0 });
-    vec3 xunit = camera_trans((vec3) { 1, 0, 0 });
-    vec3 yunit = camera_trans((vec3) { 0, 1, 0 });
-    vec3 zunit = camera_trans((vec3) { 0, 0, 1 });
+    vec3 origin = (vec3) { 0, 0, 0 };
     SDL_SetRenderDrawColor(renderer, 0xff, 0x0, 0x0, 0xff);
-    SDL_SetRenderDrawColor(renderer, 0xff, 0x0, 0x0, 0xff);
-    SDL_RenderDrawLineF(renderer, origin.x, origin.y, xunit.x, xunit.y);
+    draw_edge(origin, (vec3) { 1, 0, 0 });
     SDL_SetRenderDrawColor(renderer, 0x0, 0xff, 0x0, 0xff);
-    SDL_RenderDrawLineF(renderer, origin.x, origin.y, yunit.x, yunit.y);
+    draw_edge(origin, (vec3) { 0, 1, 0 });
     SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0xff, 0xff);
-    SDL_RenderDrawLineF(renderer, origin.x, origin.y, zunit.x, zunit.y);
+    draw_edge(origin, (vec3) { 0, 0, 1 });
 }
 void draw_camera_origin() {
-    vec3 p0 = camera_trans(v3add(camera.pos,(vec3) {-0.25,0,0}));
-    vec3 p1 = camera_trans(v3add(camera.pos,(vec3) {0.25,0,0}));
-    vec3 p2 = camera_trans(v3add(camera.pos,(vec3) {0,-0.25,0}));
-    vec3 p3 = camera_trans(v3add(camera.pos,(vec3) {0,0.25,0}));
-    vec3 p4 = camera_trans(v3add(camera.pos,(vec3) {0,0,-0.25}));
-    vec3 p5 = camera_trans(v3add(camera.pos,(vec3) {0,0,0.25}));
+    vec4 p0 = camera_trans(v3add(camera.pos,(vec3) {-0.25,0,0}));
+    vec4 p1 = camera_trans(v3add(camera.pos,(vec3) {0.25,0,0}));
+    vec4 p2 = camera_trans(v3add(camera.pos,(vec3) {0,-0.25,0}));
+    vec4 p3 = camera_trans(v3add(camera.pos,(vec3) {0,0.25,0}));
+    vec4 p4 = camera_trans(v3add(camera.pos,(vec3) {0,0,-0.25}));
+    vec4 p5 = camera_trans(v3add(camera.pos,(vec3) {0,0,0.25}));
     SDL_SetRenderDrawColor(renderer, 0x40, 0x40, 0x40, 0xff);
     SDL_RenderDrawLineF(renderer, p0.x, p0.y, p1.x, p1.y);
     SDL_RenderDrawLineF(renderer, p2.x, p2.y, p3.x, p3.y);
@@ -248,11 +256,10 @@ void draw_frame() {
     for (int i = 0; i < model->edge_count; i+=2) {
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_ADD);
         SDL_SetRenderDrawColor(renderer, 0x80, 0x80, 0x80, 0xff);
-        vec3 p0 = camera_trans(model->verts[model->edges[i]-1]);
-        vec3 p1 = camera_trans(model->verts[model->edges[i+1]-1]);
-        SDL_RenderDrawLineF(renderer, p0.x, p0.y, p1.x, p1.y);
+        draw_edge(model->verts[model->edges[i]-1], model->verts[model->edges[i+1]-1]);
     }
     draw_origin();
+    if (camera.ortho) draw_camera_origin();
     char frame_time_str[40];
     snprintf(frame_time_str, 40, "%.3f/%.3f", frame_time * 1000.0,1000.0/settings.max_fps);
     draw_text(renderer, frame_time_str, default_font, (SDL_Color) {0xff,0xff,0xff,0xff}, 20, 20);
@@ -288,17 +295,29 @@ void handle_event(SDL_Event * event) {
                 case SDLK_ESCAPE:
                     running = 0;
                     break;
+                case SDLK_p:
+                    camera.ortho = !camera.ortho;
+                    break;
             }
             break;
         case SDL_MOUSEWHEEL:
-            //zoom += ((float) event->wheel.y)/20.0;
+            if (camera.ortho) {
+                camera.ortho_scale += ((float) event->wheel.y)/20.0;
+            } else {
+                vec3 cam_fwd = {
+                    .x = cosf(camera.elev) * sinf(camera.azim),
+                    .y = sinf(camera.elev),
+                    .z = cosf(camera.elev) * cosf(camera.azim),
+                };
+                camera.pos = v3add(camera.pos, v3mul(cam_fwd, event->wheel.y/10.0));
+            }
             break;
         case SDL_MOUSEMOTION:
             if (event->motion.state & SDL_BUTTON_RMASK) {
                 float azim = camera.azim;
                 float elev = camera.elev;
                 azim += (float)event->motion.xrel * settings.mouse_sens * delta_time;
-                elev += (float)event->motion.yrel * settings.mouse_sens * delta_time;
+                elev -= (float)event->motion.yrel * settings.mouse_sens * delta_time;
                 camera_setrot(azim,elev);
             }
             break;
@@ -321,7 +340,7 @@ void handle_keys() {
     } if (kb_state[km->cam_rot_right]) {
         azim += settings.camera_rot_speed * delta_time;
     } if (kb_state[km->cam_rot_up]) {
-        elev -= settings.camera_rot_speed * delta_time;
+        elev += settings.camera_rot_speed * delta_time;
     } if (kb_state[km->cam_rot_down]) {
         elev -= settings.camera_rot_speed * delta_time;
     } if (kb_state[km->cam_up]) {
@@ -341,7 +360,6 @@ void handle_keys() {
         right = (vec3) { cosf(azim), 0, -sinf(azim) };
         camera.pos = v3add(camera.pos, v3mul(right, -settings.camera_speed * delta_time));
     }
-    printf("azim: %f\n", azim);
     camera_setrot(azim, elev);
 }
 
