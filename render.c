@@ -142,43 +142,12 @@ void camera_setrot(float azim, float elev) {
         .z = sinf(elev),
     };
     
-    /*vec4 zaxis = {
-        .x = sinf(azim) * cosf(elev),
-        .y = sinf(elev),
-        .z = cosf(azim) * cosf(elev),
-    };
-
-    vec4 xaxis = {
-        .x = cosf(azim),
-        .y = 0,
-        .z = -sinf(azim),
-    };*/
-    
     vec4 xaxis = v4cross(zaxis, yaxis);
-
-    /*vec3 gx = { 1, 0, 0 };
-    vec3 gy = { 0, 1, 0 };
-    vec3 gz = { 0, 0, 1 };*/
-    //xaxis.w = -(v3dot(camera.pos, V4TO3(xaxis)));
-    //yaxis.w = -(v3dot(camera.pos, V4TO3(yaxis)));
-    //zaxis.w = -(v3dot(camera.pos, V4TO3(zaxis)));
-    
-    //printf("%f %f %f\n", xaxis.w, yaxis.w, zaxis.w);
-
-    /*printf("Z: %s\n",v4fmt(zaxis));
-    printf("X: %s\n",v4fmt(xaxis));
-    printf("Y: %s\n",v4fmt(yaxis));*/
-    
-    /*SDL_SetRenderDrawColor(renderer, 0xff, 0x0, 0x0, 0xff);
-    SDL_RenderDrawLineF(renderer, settings.width/3 + zaxis.x * 20, settings.height/3 + zaxis.z * 20, settings.width/3, settings.height/3);
-    SDL_SetRenderDrawColor(renderer, 0x0, 0xff, 0x0, 0xff);
-    SDL_RenderDrawLineF(renderer, settings.width/3 + xaxis.x * 20, settings.height/3 + xaxis.z * 20, settings.width/3, settings.height/3);*/
 
     camera.view.i = xaxis;
     camera.view.j = yaxis;
     camera.view.k = zaxis;
     camera.view.t = (vec4) { 0, 0, 0, 1 };
-    //camera.view.t = (vec4) { -camera.pos.x, -camera.pos.y, -camera.pos.z, 1 };
 
     matrix4 trans = {
         { 1, 0, 0, 0 },
@@ -188,32 +157,10 @@ void camera_setrot(float azim, float elev) {
     };
 
     camera.view = m4mul(camera.view, trans);
-
-
-    /*vec4 fwd;
-
-    fwd.z = cosf(azim) * cosf(elev);
-    fwd.x = -sinf(azim);
-    fwd.y = -cosf(azim) * sinf(elev);
-
-    vec4 right = {
-        .y = -cosf(elev),
-        .z = -sinf(elev)
-    };
-
-    vec4 up = v4cross(fwd, right);
-    
-    camera.view.i = up;
-    camera.view.j = right;
-    camera.view.k = fwd;
-    camera.view.t = V3TO4(v3neg(camera.pos),1.0);*/
-    //printf("%s\n",m4fmt(camera.view));
-
 }
 
 void camera_setpos(vec3 pos) {
     camera.pos = pos;
-    //camera.view.t = V3TO4(v3neg(camera.pos),1.0);
 }
 
 void camera_precalc() {
@@ -263,7 +210,6 @@ vec3 camera_trans(vec3 p) {
     if (hg.w) {
         return hgtocar(hg);
     } else {
-        //printf("%s\n",v4fmt(hg));
         return (vec3) {  0, 0, 0 };
     }
 }
@@ -273,10 +219,6 @@ void draw_origin() {
     vec3 xunit = camera_trans((vec3) { 1, 0, 0 });
     vec3 yunit = camera_trans((vec3) { 0, 1, 0 });
     vec3 zunit = camera_trans((vec3) { 0, 0, 1 });
-    /*vec3 xunit = camera_trans(V4TO3(camera.view.i));
-    vec3 yunit = camera_trans(V4TO3(camera.view.j));
-    vec3 zunit = camera_trans(V4TO3(camera.view.k));*/
-    SDL_SetRenderDrawColor(renderer, 0xff, 0x0, 0x0, 0xff);
     SDL_SetRenderDrawColor(renderer, 0xff, 0x0, 0x0, 0xff);
     SDL_SetRenderDrawColor(renderer, 0xff, 0x0, 0x0, 0xff);
     SDL_RenderDrawLineF(renderer, origin.x, origin.y, xunit.x, xunit.y);
@@ -311,7 +253,6 @@ void draw_frame() {
         SDL_RenderDrawLineF(renderer, p0.x, p0.y, p1.x, p1.y);
     }
     draw_origin();
-    //draw_camera_origin();
     char frame_time_str[40];
     snprintf(frame_time_str, 40, "%.3f/%.3f", frame_time * 1000.0,1000.0/settings.max_fps);
     draw_text(renderer, frame_time_str, default_font, (SDL_Color) {0xff,0xff,0xff,0xff}, 20, 20);
