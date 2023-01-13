@@ -131,6 +131,18 @@ void camera_setrot(float azim, float elev) {
     camera.elev = elev;
 
     vec4 zaxis = {
+        .x = -sinf(-azim),
+        .y = -cosf(-azim) * sinf(elev),
+        .z = cosf(-azim) * cosf(elev),
+    };
+
+    vec4 yaxis = {
+        .x = 0,
+        .y = cosf(elev),
+        .z = sinf(elev),
+    };
+    
+    /*vec4 zaxis = {
         .x = sinf(azim) * cosf(elev),
         .y = sinf(elev),
         .z = cosf(azim) * cosf(elev),
@@ -140,9 +152,9 @@ void camera_setrot(float azim, float elev) {
         .x = cosf(azim),
         .y = 0,
         .z = -sinf(azim),
-    };
+    };*/
     
-    vec4 yaxis = v4cross(zaxis, xaxis);
+    vec4 xaxis = v4cross(zaxis, yaxis);
 
     /*vec3 gx = { 1, 0, 0 };
     vec3 gy = { 0, 1, 0 };
@@ -165,20 +177,18 @@ void camera_setrot(float azim, float elev) {
     camera.view.i = xaxis;
     camera.view.j = yaxis;
     camera.view.k = zaxis;
-    camera.view.t = (vec4) { -camera.pos.x, -camera.pos.y, -camera.pos.z, 1 };
+    camera.view.t = (vec4) { 0, 0, 0, 1 };
+    //camera.view.t = (vec4) { -camera.pos.x, -camera.pos.y, -camera.pos.z, 1 };
 
-    /*matrix4 trans = {
+    matrix4 trans = {
         { 1, 0, 0, 0 },
         { 0, 1, 0, 0 },
         { 0, 0, 1, 0 },
         { -camera.pos.x, -camera.pos.y, -camera.pos.z, 1 }
     };
 
-    camera.view = m4mul(trans, camera.view);*/
+    camera.view = m4mul(camera.view, trans);
 
-    printf("%s\n",m4fmt(camera.view));
-
-    //camera.view.t = V3TO4(v3neg(camera.pos),1.0);
 
     /*vec4 fwd;
 
@@ -197,6 +207,7 @@ void camera_setrot(float azim, float elev) {
     camera.view.j = right;
     camera.view.k = fwd;
     camera.view.t = V3TO4(v3neg(camera.pos),1.0);*/
+    //printf("%s\n",m4fmt(camera.view));
 
 }
 
@@ -241,11 +252,18 @@ void camera_init(float fov, int width, int height, float near_clip, float far_cl
 
 
 vec3 camera_trans(vec3 p) {
+    /*matrix4 defcom = {
+        { 1182, 0, 0, 0 },
+        { 0, 665.1, 0, 0 },
+        { -512, -384, 1, -1 },
+        { -3151, -3250, 6, -5 },
+    };
+    vec4 hg = m4v4mul(defcomcamera.combined, V3TO4(p,1.0));*/
     vec4 hg = m4v4mul(camera.combined, V3TO4(p,1.0));
     if (hg.w) {
         return hgtocar(hg);
     } else {
-        printf("%s\n",v4fmt(hg));
+        //printf("%s\n",v4fmt(hg));
         return (vec3) {  0, 0, 0 };
     }
 }
@@ -255,6 +273,10 @@ void draw_origin() {
     vec3 xunit = camera_trans((vec3) { 1, 0, 0 });
     vec3 yunit = camera_trans((vec3) { 0, 1, 0 });
     vec3 zunit = camera_trans((vec3) { 0, 0, 1 });
+    /*vec3 xunit = camera_trans(V4TO3(camera.view.i));
+    vec3 yunit = camera_trans(V4TO3(camera.view.j));
+    vec3 zunit = camera_trans(V4TO3(camera.view.k));*/
+    SDL_SetRenderDrawColor(renderer, 0xff, 0x0, 0x0, 0xff);
     SDL_SetRenderDrawColor(renderer, 0xff, 0x0, 0x0, 0xff);
     SDL_SetRenderDrawColor(renderer, 0xff, 0x0, 0x0, 0xff);
     SDL_RenderDrawLineF(renderer, origin.x, origin.y, xunit.x, xunit.y);
@@ -354,11 +376,11 @@ void handle_keys() {
     Keymap * km = &settings.keymap;
     const Uint8* kb_state = SDL_GetKeyboardState(NULL);
     if (kb_state[km->cam_rot_left]) {
-        azim += settings.camera_rot_speed * delta_time;
-    } if (kb_state[km->cam_rot_right]) {
         azim -= settings.camera_rot_speed * delta_time;
+    } if (kb_state[km->cam_rot_right]) {
+        azim += settings.camera_rot_speed * delta_time;
     } if (kb_state[km->cam_rot_up]) {
-        elev += settings.camera_rot_speed * delta_time;
+        elev -= settings.camera_rot_speed * delta_time;
     } if (kb_state[km->cam_rot_down]) {
         elev -= settings.camera_rot_speed * delta_time;
     } if (kb_state[km->cam_up]) {
@@ -378,6 +400,7 @@ void handle_keys() {
         right = (vec3) { cosf(azim), 0, -sinf(azim) };
         camera.pos = v3add(camera.pos, v3mul(right, -settings.camera_speed * delta_time));
     }
+    printf("azim: %f\n", azim);
     camera_setrot(azim, elev);
 }
 
@@ -490,7 +513,6 @@ int main(int argc, char * args[]) {
 
 	setup_sdl();
     camera_init(settings.fov, settings.width, settings.height, settings.near_clip, settings.far_clip);
-    printf("hmm\n");
 	loop();
 	finish();
     return 0;
