@@ -161,8 +161,6 @@ void camera_setpos(vec3 pos) {
 }
 
 void camera_precalc() {
-    float h = 1/(tanf(camera.fov/2.0));
-    float w = h / camera.aspect;
     if (camera.ortho) {
         camera.proj = (matrix4) {
             { camera.height/2 * camera.ortho_scale, 0, 0, 0},
@@ -171,6 +169,7 @@ void camera_precalc() {
             { camera.width/2, camera.height/2, 0, 1 }
         };
     } else {
+        float s = 1/(tanf(camera.fov/2.0));
         camera.proj = m4mul(
             (matrix4) {
                 { camera.height/2, 0, 0, 0},
@@ -179,8 +178,8 @@ void camera_precalc() {
                 { camera.width/2, camera.height/2, 0, 1 }
             },
             (matrix4) {
-                { w, 0, 0, 0 },
-                { 0, h , 0, 0 },
+                { s, 0, 0, 0 },
+                { 0, s , 0, 0 },
                 { 0, 0, 1, 1 },
                 { 0, 0, 1, 0 },
             }
@@ -220,10 +219,15 @@ vec4 camera_trans(vec3 p) {
 void draw_edge(vec3 p0, vec3 p1) {
     vec4 hg0 = camera_trans(p0);
     vec4 hg1 = camera_trans(p1);
-    if ((hg0.w <= 0) || (hg1.w <= 0)) return;
+    if ((hg0.w <= camera.near_clip) || (hg1.w <= camera.near_clip)) return;
     vec3 s0 = hgtocar(hg0);
     vec3 s1 = hgtocar(hg1);
-    SDL_RenderDrawLineF(renderer, s0.x, s0.y, s1.x, s1.y);
+    if (
+        ((s0.x && s0.x < camera.width) && (s0.y && s0.y < camera.height)) ||
+        ((s1.x && s1.x < camera.width) && (s1.y && s1.y < camera.height))
+    ) {
+        SDL_RenderDrawLineF(renderer, s0.x, s0.y, s1.x, s1.y);
+    }
 }
 
 void draw_origin() {
