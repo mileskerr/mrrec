@@ -58,6 +58,11 @@ void edge_ll_insert(EdgeLL ** head, size_t p0, size_t p1) {
         .next = node,
     };
 }
+void edge_ll_free(EdgeLL * ptr) {
+    if (ptr == NULL) return;
+    if (ptr->next == NULL) free(ptr);
+    else edge_ll_free(ptr->next);
+}
 
 size_t parse_obj(FILE * fp, vec3 ** verts, size_t ** edges) {
 
@@ -126,5 +131,6 @@ size_t parse_obj(FILE * fp, vec3 ** verts, size_t ** edges) {
             iteration++;
         }
     }
+    for (int i = 0; i < EDGE_SET_LEN; i++) edge_ll_free(edge_set[i]);
     return ei;
 }
