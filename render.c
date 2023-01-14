@@ -325,6 +325,12 @@ void handle_event(SDL_Event * event) {
                 camera_setrot(azim,elev);
             }
             break;
+        case SDL_WINDOWEVENT:
+            if (event->window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                camera.width = event->window.data1;
+                camera.height = event->window.data2;
+            }
+            break;
         case SDL_QUIT:
             running = 0;
             break;
@@ -460,8 +466,6 @@ OPTS_END();
 
 int main(int argc, char * args[]) {
 
-    parse_opts(argc, args);
-
     FILE * fp;
     fp = fopen(settings.model_path, "r");
 
@@ -473,6 +477,7 @@ int main(int argc, char * args[]) {
         .verts = verts,
         .edge_count = edge_count,
     };
+
 
 	setup_sdl();
     camera_init(settings.fov, settings.width, settings.height, settings.near_clip, settings.far_clip);
