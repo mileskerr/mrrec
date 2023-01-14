@@ -1,5 +1,5 @@
 CC := gcc
-CFLAGS := -Wall -g -lSDL2 -lSDL2_ttf -lm
+CFLAGS := -O2 -Wall -lSDL2 -lSDL2_ttf -lm
 APP_NAME := mrrec
 
 BUILD_DIR := build
