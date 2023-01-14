@@ -8,7 +8,7 @@ int parse_face(char * nptr, int res[16]) {
     while (nptr[ptri]) {
         if (nptr[ptri] == '/') {
             buf[bi] = 0;
-            res[ri] = atoi(buf);
+            if (res != NULL) res[ri] = atoi(buf);
             bi = 0;
             ri++;
             while ((nptr[ptri] != ' ') && nptr[ptri]) { //skip to the next group because texture coordinates and normals aren't important to us
@@ -20,7 +20,7 @@ int parse_face(char * nptr, int res[16]) {
             ptri++;
         }
     }
-    res[ri] = 0;
+    if (res != NULL) res[ri] = 0;
     return ri;
 }
 
@@ -31,26 +31,23 @@ size_t parse_obj(FILE * fp, vec3 ** verts, size_t ** edges) {
 
     int vert_count = 0;
     int face_count = 0;
+    int edge_count = 0;
 
-    { //count verts and faces
-        char ch;
-        char buf[4] = { 0, 0, 0, 0 };
-        while ((ch = fgetc(fp)) != EOF) {
-            buf[0] = buf[1];
-            buf[1] = buf[2];
-            buf[2] = ch;
-            if (!strcmp(buf,"\nv ")) {
+    {
+        char buf[200] = { 0 };
+        while (fgets(buf, 200, fp) != NULL) {
+            if ((buf[0] == 'v') && (buf[1] == ' ')) {
                 vert_count++;
-            }
-            if (!strcmp(buf,"\nf ")) {
+            } else if ((buf[0] == 'f') && (buf[1] == ' ')) {
                 face_count++;
+                edge_count += parse_face(buf + 2, NULL);
             }
         }
     }
 
 
     *verts = malloc(vert_count * sizeof(vec3));
-    *edges = malloc(face_count * 6 * sizeof(size_t));
+    *edges = malloc(edge_count * 2 * sizeof(size_t));
 
     rewind(fp);
     int ei = 0;
