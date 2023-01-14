@@ -28,18 +28,18 @@ int parse_face(char * nptr, size_t res[MAX_NGON]) {
 }
 
 struct EdgeLL {
-    float p0;
-    float p1;
+    size_t p0;
+    size_t p1;
     struct EdgeLL * next;
 };
 
 typedef struct EdgeLL EdgeLL;
 
-uint32_t hash_edge(float p0, float p1) {
-    return (*(uint32_t*) &p0) + (*(uint32_t*) &p1);
+size_t hash_edge(size_t p0, size_t p1) {
+    return p0 + p1;
 }
 
-int edge_ll_find(EdgeLL * ptr, float p0, float p1) {
+int edge_ll_find(EdgeLL * ptr, size_t p0, size_t p1) {
     for (;;) {
         if (ptr == NULL) return 0;
         if (((p0 == ptr->p0) && (p1 == ptr->p1)) || ((p1 == ptr->p0) && (p0 == ptr->p1))) {
@@ -49,7 +49,7 @@ int edge_ll_find(EdgeLL * ptr, float p0, float p1) {
     }
 }
 
-void edge_ll_insert(EdgeLL ** head, float p0, float p1) {
+void edge_ll_insert(EdgeLL ** head, size_t p0, size_t p1) {
     EdgeLL * node = *head;
     *head = malloc(sizeof(EdgeLL));
     **head = (EdgeLL) {
