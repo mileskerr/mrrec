@@ -60,7 +60,10 @@ void edge_ll_insert(EdgeLL ** head, size_t p0, size_t p1) {
 }
 void edge_ll_free(EdgeLL * ptr) {
     if (ptr == NULL) return;
-    if (ptr->next == NULL) free(ptr);
+    if (ptr->next == NULL) {
+        free(ptr);
+        return;
+    }
     else edge_ll_free(ptr->next);
     free(ptr);
 }
