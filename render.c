@@ -19,7 +19,6 @@ typedef struct {
     size_t * edges;
 } Model;
 
-
 typedef struct {
     vec3 pos;
     float azim;
@@ -217,11 +216,13 @@ vec4 camera_trans(vec3 p) {
 }
 
 void draw_edge(vec3 p0, vec3 p1) {
+
     vec4 hg0 = camera_trans(p0);
     vec4 hg1 = camera_trans(p1);
     if ((hg0.w <= camera.near_clip) || (hg1.w <= camera.near_clip)) return;
     vec3 s0 = hgtocar(hg0);
     vec3 s1 = hgtocar(hg1);
+
     if (
         ((s0.x && s0.x < camera.width) && (s0.y && s0.y < camera.height)) ||
         ((s1.x && s1.x < camera.width) && (s1.y && s1.y < camera.height))
@@ -257,11 +258,13 @@ void draw_frame() {
     SDL_SetRenderDrawColor(renderer, 0x0, 0x0, 0x0, 0xff);
     SDL_RenderClear(renderer);
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+
     for (int i = 0; i < model->edge_count; i+=2) {
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_ADD);
         SDL_SetRenderDrawColor(renderer, 0x80, 0x80, 0x80, 0xff);
         draw_edge(model->verts[model->edges[i]-1], model->verts[model->edges[i+1]-1]);
     }
+
     draw_origin();
     if (camera.ortho) draw_camera_origin();
     char frame_time_str[40];
@@ -392,6 +395,8 @@ void loop() {
 }
 
 void finish() {
+    free(model->verts);
+    free(model->edges);
     TTF_CloseFont(default_font);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
@@ -465,6 +470,8 @@ STR_OPT('m', settings.model_path);
 OPTS_END();
 
 int main(int argc, char * args[]) {
+
+    parse_opts(argc,args);
 
     FILE * fp;
     fp = fopen(settings.model_path, "r");
