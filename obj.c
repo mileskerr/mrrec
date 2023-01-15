@@ -62,6 +62,7 @@ void edge_ll_free(EdgeLL * ptr) {
     if (ptr == NULL) return;
     if (ptr->next == NULL) free(ptr);
     else edge_ll_free(ptr->next);
+    free(ptr);
 }
 
 size_t parse_obj(FILE * fp, vec3 ** verts, size_t ** edges) {
